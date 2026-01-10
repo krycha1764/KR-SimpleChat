@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
 	memset(&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(2137);
+	int ret = 0;
 
 	if(argc == 3) {
 		servaddr.sin_addr.s_addr = inet_addr(argv[1]);
@@ -45,11 +46,20 @@ int main(int argc, char **argv) {
 	}else if(argc == 1) {
 		size_t len;
 		char *text = NULL;
+		ret = 0;
 		printf("SERVER ADDRESS: ");
-		getline(&text, &len, stdin);
+		ret = getline(&text, &len, stdin);
+		if(ret < 0) {
+			printf("getline() ERROR %d : %s\n", errno, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
 		servaddr.sin_addr.s_addr = inet_addr(text);
 		printf("SERVER PORT: ");
-		getline(&text, &len, stdin);
+		ret = getline(&text, &len, stdin);
+		if(ret < 0) {
+			printf("getline() ERROR %d : %s\n", errno, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
 		servaddr.sin_port = htons(atoi(text));
 		free(text);
 
@@ -59,9 +69,23 @@ int main(int argc, char **argv) {
 	}
 
 	printf("username:\n");
-	getline(&username, &user_s, stdin);
+	ret = getline(&username, &user_s, stdin);
+	if(ret < 0) {
+		printf("getline() ERROR %d : %s\n", errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}else if(ret <= 5) {
+		printf("username too short.\n");
+		exit(EXIT_FAILURE);
+	}
 	printf("password:\n");
-	getline(&password, &pass_s, stdin);
+	ret = getline(&password, &pass_s, stdin);
+	if(ret < 0) {
+		printf("getline() ERROR %d : %s\n", errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}else if(ret <= 5) {
+		printf("password too short.\n");
+		exit(EXIT_FAILURE);
+	}
 	for(size_t i = 0; i < user_s; i++) {
 		if(username[i] == '\n') username[i] = '\0';
 	}
@@ -73,7 +97,7 @@ int main(int argc, char **argv) {
 	action.sa_handler = sig_sigpipe;
 	sigemptyset (&action.sa_mask);
 	action.sa_flags = 0;
-	int ret = sigaction(SIGPIPE, &action, NULL);
+	ret = sigaction(SIGPIPE, &action, NULL);
 	if(ret < 0) {
 		int err = errno;
 		printf("sigaction() ERROR %d : %s\n", err, strerror(err));
@@ -84,7 +108,7 @@ int main(int argc, char **argv) {
 
 	if(sockfd <= 0) {
 		int err = errno;
-		printf("socket() ERROR %d: %s", err, strerror(err));
+		printf("socket() ERROR %d: %s\n", err, strerror(err));
 		exit(err);
 	}
 
@@ -92,7 +116,7 @@ int main(int argc, char **argv) {
 
 	if(ret != 0) {
 		int err = errno;
-		printf("connect() ERROR %d: %s", err, strerror(err));
+		printf("connect() ERROR %d: %s\n", err, strerror(err));
 		exit(err);
 	}
 
@@ -112,7 +136,12 @@ void* send_thread(void* arg) {
 	while(1) {
 		size_t n = 0;
 		char* text = NULL;
-		getline(&text, &n, stdin);
+		int ret = 0;
+		ret = getline(&text, &n, stdin);
+		if(ret < 0) {
+			printf("getline() ERROR %d : %s\n", errno, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
 		if(!strcmp(text, "QUIT\n")) {
 			printf("QUITTING...\n");
 			struct tlv msg;
@@ -183,6 +212,9 @@ void* recv_thread(void* arg) {
 			exit(EXIT_FAILURE);
 		}
 		free(text);
+		text = NULL;
+		free(receives.data);
+		receives.data = NULL;
 	}
 	return NULL;
 }

@@ -173,7 +173,7 @@ void* send_thread(void* arg) {
 		if(!strcmp(text, "QUIT\n")) {
 			printf("QUITTING...\n");
 			struct tlv msg;
-			msg.length = sprintf(text, "TERM\n");
+			msg.length = sprintf(text, "TERM\n") +1;
 			msg.type = CONTROL;
 			msg.data = (uint8_t*)text;
 			send_tlv(sockfd, &msg);
@@ -226,13 +226,13 @@ void* recv_thread(void* arg) {
 			case NAME_REQ:
 				msg.type = NAME;
 				msg.data = (uint8_t*)username;
-				msg.length = strlen(username);
+				msg.length = strlen(username) + 1;
 				send_tlv(sockfd, &msg);
 				break;
 			case PASS_REQ:
 				msg.type = PASS;
 				msg.data = (uint8_t*)password;
-				msg.length = strlen(password);
+				msg.length = strlen(password) + 1;
 				send_tlv(sockfd, &msg);
 				break;
 			default:

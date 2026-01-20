@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 
 	action.sa_handler = sig_sigpipe;
 	sigemptyset (&action.sa_mask);
-	action.sa_flags = 0;
+	action.sa_flags = SA_RESTART;
 	ret = sigaction(SIGPIPE, &action, NULL);
 	if(ret < 0) {
 		int err = errno;
@@ -154,10 +154,12 @@ int main(int argc, char **argv) {
 void* client_handle(void *iter) {
 	size_t it = *(size_t*)iter;
 	struct tlv receives;
+	memset(&receives, 0, sizeof(receives));
 	int ret = 0;
 	ret = client_getpass(&clients[it]);
 	if(ret != 0) {
 		printf("client_getpass ERROR %d : %s", ret, strerror(ret));
+		free(receives.data);
 		client_free(&clients[it]);
 		pthread_exit(NULL);
 	}
@@ -166,6 +168,7 @@ void* client_handle(void *iter) {
 		if(ret < 0) {
 			int err = errno;
 			printf("recv_tlv() ERROR %d : %s\n", err, strerror(err));
+			free(receives.data);
 			client_free(&clients[it]);
 			pthread_exit(NULL);
 		}
@@ -181,6 +184,8 @@ void* client_handle(void *iter) {
 					if(ret < 0) {
 						int err = errno;
 						printf("send_tlv() ERROR %d : %s\n", err, strerror(err));
+						close(clients[it].clisock);
+						free(receives.data);
 						client_free(&clients[it]);
 						pthread_exit(NULL);
 					}
@@ -190,16 +195,21 @@ void* client_handle(void *iter) {
 				if(strcmp((char*)receives.data, "TERM\n") == 0) {
 					printf("Client disconnected :(\n");
 					close(clients[it].clisock);
+					free(receives.data);
 					client_free(&clients[it]);
 					pthread_exit(NULL);
 				}
 				break;
 			default:
 				printf("WRONG MESSEGE TYPE: %d", receives.type);
+				close(clients[it].clisock);
+				free(receives.data);
 				client_free(&clients[it]);
 				pthread_exit(NULL);
 				break;
 		}
+		free(receives.data);
+		receives.data = NULL;
 	}
 }
 
@@ -221,6 +231,7 @@ int client_getpass(struct client_list* client) {
 	if(msg.type != NAME) return -1;
 	client->name = realloc(client->name, strlen((char*)msg.data));
 	strcpy(client->name, (char*)msg.data);
+	free(msg.data);
 
 	msg.type = PASS_REQ;
 	msg.length = 0;

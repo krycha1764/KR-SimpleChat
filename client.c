@@ -34,7 +34,11 @@ void sig_sigpipe(int signo) {
 int main(int argc, char **argv) {
 
 	struct sockaddr_in servaddr;
+	struct addrinfo hints;
+	struct addrinfo *result, *rp;
+
 	memset(&servaddr, 0, sizeof(servaddr));
+	memset(&hints, 0, sizeof(hints));
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(2137);
 	int ret = 0;
@@ -64,7 +68,20 @@ int main(int argc, char **argv) {
 		free(text);
 
 	}else {
-		printf("WRONG USAGE\n");
+		printf("WRONG USAGE, EXAMPLES:\n");
+		printf("%s ADDRESS PORT\n", argv[0]);
+		printf("%s\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
+
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = 0;
+	hints.ai_protocol = 0;
+
+	ret = getaddrinfo(argv[1], argv[2], &hints, &result);
+	if(ret != 0) {
+		printf("getaddrinfo() ERROR %d : %s\n", errno, gai_strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
@@ -104,20 +121,25 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	for(rp = result; rp != NULL; rp = rp->ai_next) {
 
-	if(sockfd <= 0) {
-		int err = errno;
-		printf("socket() ERROR %d: %s\n", err, strerror(err));
-		exit(err);
+		sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+
+		if(sockfd <= 0) {
+			continue;
+		}
+
+		ret = connect(sockfd, rp->ai_addr, rp->ai_addrlen);
+
+		if(ret != -1) {
+			break; // success
+		}
 	}
 
-	ret = connect(sockfd, (SA *)&servaddr, sizeof(servaddr));
-
-	if(ret != 0) {
-		int err = errno;
-		printf("connect() ERROR %d: %s\n", err, strerror(err));
-		exit(err);
+	freeaddrinfo(result);
+	if(rp == NULL) {
+		printf("Couldn't connect\n");
+		exit(EXIT_FAILURE);
 	}
 
 	pthread_t sendt;

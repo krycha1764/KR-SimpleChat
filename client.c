@@ -90,8 +90,11 @@ int main(int argc, char **argv) {
 	if(ret < 0) {
 		printf("getline() ERROR %d : %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);
-	}else if(ret <= 5) {
-		printf("username too short.\n");
+	}else if(ret < 5) {
+		printf("username too short\n");
+		exit(EXIT_FAILURE);
+	}else if(ret > 35) {
+		printf("username too long\n");
 		exit(EXIT_FAILURE);
 	}
 	printf("password:\n");
@@ -99,8 +102,11 @@ int main(int argc, char **argv) {
 	if(ret < 0) {
 		printf("getline() ERROR %d : %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);
-	}else if(ret <= 5) {
-		printf("password too short.\n");
+	}else if(ret < 5) {
+		printf("password too short\n");
+		exit(EXIT_FAILURE);
+	}else if(ret > 35) {
+		printf("password too long\n");
 		exit(EXIT_FAILURE);
 	}
 	for(size_t i = 0; i < user_s; i++) {
@@ -138,7 +144,7 @@ int main(int argc, char **argv) {
 
 	freeaddrinfo(result);
 	if(rp == NULL) {
-		printf("Couldn't connect\n");
+		printf("Can't connect :(\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -214,7 +220,7 @@ void* recv_thread(void* arg) {
 				}else if(strcmp((char*)receives.data, "SERV_ERROR\n")) {
 					printf("Server error :(\n");
 					close(sockfd);
-					exit(EXIT_SUCCESS);
+					exit(EXIT_FAILURE);
 				}
 				break;
 			case NAME_REQ:

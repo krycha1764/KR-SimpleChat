@@ -69,14 +69,14 @@ int main(int argc, char **argv) {
 	clients = malloc(MAX_CLIENTS * sizeof(struct client_list));
 
 	int sockfd = 0;
-	struct sockaddr_in servaddr;
+	struct sockaddr_in6 servaddr;
 	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(port);
-	//servaddr.sin6_addr = in6addr_any;
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	servaddr.sin6_family = AF_INET6;
+	servaddr.sin6_port = htons(port);
+	servaddr.sin6_addr = in6addr_any;
+	//servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	sockfd = socket(AF_INET6, SOCK_STREAM, 0);
 
 	if(sockfd <= 0) {
 		int err = errno;

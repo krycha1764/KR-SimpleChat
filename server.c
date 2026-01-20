@@ -84,6 +84,14 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
+	ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
+
+	if(ret < 0) {
+		int err = errno;
+		printf("setsockopt() ERROR %d: %s\n", err, strerror(err));
+		exit(EXIT_FAILURE);
+	}
+
 	ret = bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
 
 	if(ret) {

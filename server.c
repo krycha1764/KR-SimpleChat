@@ -128,12 +128,7 @@ int main(int argc, char **argv) {
 			}
 		}
 		if(tooManyClients) {
-			char text[50] = {0};
-			struct tlv msg;
-			msg.type = CONTROL;
-			msg.data = (uint8_t*)text;
-			msg.length = sprintf(text, "REJECT\n");
-			send_tlv(sockfd, &msg);
+			sendMessage(sockfd, CONTROL, "REJECT\n");
 			close(connfd);
 			printf("Rejected client\n");
 			continue;
@@ -142,12 +137,7 @@ int main(int argc, char **argv) {
 
 		ret = pthread_create(&clients[iterator].clithread, NULL, &client_handle, &iterator);
 		if(ret != 0) {
-			char text[50] = {0};
-			struct tlv msg;
-			msg.type = CONTROL;
-			msg.data = (uint8_t*)text;
-			msg.length = sprintf(text, "SERV_ERROR\n");
-			send_tlv(connfd, &msg);
+			sendMessage(connfd, CONTROL, "SERV_ERROR\n");
 			close(connfd);
 		}
 

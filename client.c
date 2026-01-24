@@ -169,20 +169,12 @@ void* send_thread(void* arg) {
 		}
 		if(!strcmp(text, "QUIT\n")) {
 			printf("QUITTING...\n");
-			struct tlv msg;
-			msg.length = sprintf(text, "TERM\n") +1;
-			msg.type = CONTROL;
-			msg.data = (uint8_t*)text;
-			send_tlv(sockfd, &msg);
+			sendMessage(sockfd, CONTROL, "TERM\n");
 			close(sockfd);
 			exit(EXIT_SUCCESS);
 			pthread_exit(NULL);
 		}
-		struct tlv msg;
-		msg.type = MESSAGE;
-		msg.length = strlen(text);
-		msg.data = (uint8_t*)text;
-		send_tlv(sockfd, &msg);
+		sendMessage(sockfd, MESSAGE, text);
 	}
 
 	return NULL;
@@ -191,8 +183,6 @@ void* send_thread(void* arg) {
 void* recv_thread(void* arg) {
 	struct tlv receives;
 	receives.data = NULL;
-	struct tlv msg;
-	msg.data = NULL;
 	while (1) {
 		recv_tlv(sockfd, &receives);
 		char *text = NULL;
@@ -221,16 +211,10 @@ void* recv_thread(void* arg) {
 				}
 				break;
 			case NAME_REQ:
-				msg.type = NAME;
-				msg.data = (uint8_t*)username;
-				msg.length = strlen(username) + 1;
-				send_tlv(sockfd, &msg);
+				sendMessage(sockfd, NAME, username);
 				break;
 			case PASS_REQ:
-				msg.type = PASS;
-				msg.data = (uint8_t*)password;
-				msg.length = strlen(password) + 1;
-				send_tlv(sockfd, &msg);
+				sendMessage(sockfd, PASS, password);
 				break;
 			default:
 			printf("WRONG DATA RECEIVED %X %X\n", MESSAGE, receives.type);

@@ -30,4 +30,6 @@ struct tlv {
 int send_tlv(int sockfd, struct tlv* tlvs);
 int recv_tlv(int sockfd, struct tlv* tlvs);
 
+int sendMessage(int sockfd, int type, char* message);
+
 #endif

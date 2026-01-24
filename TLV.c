@@ -30,3 +30,12 @@ int recv_tlv(int sockfd, struct tlv* tlvs) {
 	free(buff);
 	return 0;
 }
+
+int sendMessage(int sockfd, int type, char* message) {
+	struct tlv msg;
+
+	msg.type = type;
+	msg.length = strlen(message);
+	msg.data = (uint8_t*)message;
+	return send_tlv(sockfd, &msg);
+}

@@ -13,6 +13,7 @@
 #include <pthread.h>
 
 #include "TLV.h"
+#include "signals.h"
 
 #define SA struct sockaddr
 
@@ -25,11 +26,6 @@ char* password = NULL;
 
 void* send_thread(void* arg);
 void* recv_thread(void* arg);
-
-void sig_sigpipe(int signo) {
-	printf("Received SIGPIPE - exit\n");
-	exit(EXIT_FAILURE);
-}
 
 int main(int argc, char **argv) {
 
@@ -122,14 +118,9 @@ int main(int argc, char **argv) {
 		if(password[i] == '\n') password[i] = '\0';
 	}
 
-	struct sigaction action;
-	action.sa_handler = sig_sigpipe;
-	sigemptyset (&action.sa_mask);
-	action.sa_flags = 0;
-	ret = sigaction(SIGPIPE, &action, NULL);
+	ret = setupSignalsHandlers(SH_CLIENT);
 	if(ret < 0) {
-		int err = errno;
-		printf("sigaction() ERROR %d : %s\n", err, strerror(err));
+		printf("Error setting signal handlers %d : %s", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 

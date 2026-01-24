@@ -1,6 +1,5 @@
 
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -13,6 +12,7 @@
 #include <pthread.h>
 
 #include "TLV.h"
+#include "signals.h"
 
 #define MAX_CLIENTS 128
 
@@ -31,8 +31,6 @@ struct client_list clients[MAX_CLIENTS];
 void* client_handle(void *iter);
 int client_getpass(struct client_list* client);
 void client_free(struct client_list* client);
-void sig_sigchild(int signo);
-void sig_sigpipe(int signo);
 
 int main(int argc, char **argv) {
 
@@ -42,30 +40,16 @@ int main(int argc, char **argv) {
 	}
 
 	int port = atoi(argv[1]);
+	int ret = 0;
 
 	if(port < 0 || port > 65535) {
 		printf("WRONG PORT NUMBER\n");
 		exit(EXIT_FAILURE);
 	}
 
-	struct sigaction action;
-	action.sa_handler = sig_sigchild;
-	sigemptyset (&action.sa_mask);
-	action.sa_flags = SA_RESTART;
-	int ret = sigaction(SIGCHLD, &action, NULL);
+	ret = setupSignalsHandlers(SH_SERVER);
 	if(ret < 0) {
-		int err = errno;
-		printf("sigaction() ERROR %d : %s\n", err, strerror(err));
-		exit(EXIT_FAILURE);
-	}
-
-	action.sa_handler = sig_sigpipe;
-	sigemptyset (&action.sa_mask);
-	action.sa_flags = SA_RESTART;
-	ret = sigaction(SIGPIPE, &action, NULL);
-	if(ret < 0) {
-		int err = errno;
-		printf("sigaction() ERROR %d : %s\n", err, strerror(err));
+		printf("Error setting signal handlers %d : %s", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
@@ -310,13 +294,4 @@ void client_free(struct client_list* client) {
 	if(client->pass) free(client->pass);
 	client->name = NULL;
 	client->pass = NULL;
-}
-
-void sig_sigchild(int signo) {
-
-}
-
-void sig_sigpipe(int signo) {
-	printf("Received SIGPIPE\n");
-	//exit(EXIT_FAILURE);
 }

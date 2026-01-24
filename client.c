@@ -33,39 +33,36 @@ void sig_sigpipe(int signo) {
 
 int main(int argc, char **argv) {
 
-	struct sockaddr_in servaddr;
+	char *servaddr = NULL;
+	char *servport = NULL;
+
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
 
-	memset(&servaddr, 0, sizeof(servaddr));
 	memset(&hints, 0, sizeof(hints));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(2137);
 	int ret = 0;
 
 	if(argc == 3) {
-		servaddr.sin_addr.s_addr = inet_addr(argv[1]);
-		servaddr.sin_port = htons(atoi(argv[2]));
+		servaddr = argv[1];
+		servport = argv[2];
 
 	}else if(argc == 1) {
-		size_t len;
-		char *text = NULL;
+		size_t len = 0;
 		ret = 0;
 		printf("SERVER ADDRESS: ");
-		ret = getline(&text, &len, stdin);
+		ret = getline(&servaddr, &len, stdin);
 		if(ret < 0) {
 			printf("getline() ERROR %d : %s\n", errno, strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-		servaddr.sin_addr.s_addr = inet_addr(text);
+
+		len = 0;
 		printf("SERVER PORT: ");
-		ret = getline(&text, &len, stdin);
+		ret = getline(&servport, &len, stdin);
 		if(ret < 0) {
 			printf("getline() ERROR %d : %s\n", errno, strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-		servaddr.sin_port = htons(atoi(text));
-		free(text);
 
 	}else {
 		printf("WRONG USAGE, EXAMPLES:\n");
@@ -79,7 +76,14 @@ int main(int argc, char **argv) {
 	hints.ai_flags = 0;
 	hints.ai_protocol = 0;
 
-	ret = getaddrinfo(argv[1], argv[2], &hints, &result);
+	for(size_t i = 0; i < strlen(servaddr); i++) {
+		if(servaddr[i] == '\n') servaddr[i] = '\0';
+	}
+	for(size_t i = 0; i < strlen(servport); i++) {
+		if(servport[i] == '\n') servport[i] = '\0';
+	}
+
+	ret = getaddrinfo(servaddr, servport, &hints, &result);
 	if(ret != 0) {
 		printf("getaddrinfo() ERROR %d : %s\n", errno, gai_strerror(errno));
 		exit(EXIT_FAILURE);
@@ -97,8 +101,10 @@ int main(int argc, char **argv) {
 		printf("username too long\n");
 		exit(EXIT_FAILURE);
 	}
-	printf("password:\n");
-	ret = getline(&password, &pass_s, stdin);
+	//printf("password:\n");
+	//ret = getline(&password, &pass_s, stdin);
+	password = "password";
+	ret = strlen(password);
 	if(ret < 0) {
 		printf("getline() ERROR %d : %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);

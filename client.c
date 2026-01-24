@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
 
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = 0;
+	hints.ai_flags = AI_ADDRCONFIG;
 	hints.ai_protocol = 0;
 
 	for(size_t i = 0; i < strlen(servaddr); i++) {

@@ -145,6 +145,16 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
+	struct linger sl;
+	sl.l_onoff = 1;
+	sl.l_linger = 1;
+	ret = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &sl, sizeof(sl));
+	if(ret < 0) {
+		int err = errno;
+		printf("setsockopt() ERROR %d: %s\n", err, strerror(err));
+		exit(EXIT_FAILURE);
+	}
+
 	pthread_t sendt;
 	pthread_t recvt;
 

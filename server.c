@@ -23,7 +23,10 @@ struct client_list {
 	char* pass;
 };
 
-struct client_list* clients = NULL;
+int histfd = 0;
+pthread_mutex_t histmux = PTHREAD_MUTEX_INITIALIZER;
+//struct client_list *clients = NULL;
+struct client_list clients[MAX_CLIENTS];
 
 void* client_handle(void *iter);
 int client_getpass(struct client_list* client);
@@ -66,7 +69,8 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-	clients = malloc(MAX_CLIENTS * sizeof(struct client_list));
+	//clients = malloc(MAX_CLIENTS * sizeof(struct client_list));
+	memset(clients, 0, sizeof(struct client_list) * MAX_CLIENTS);
 
 	int sockfd = 0;
 	struct sockaddr_in6 servaddr;
@@ -99,6 +103,14 @@ int main(int argc, char **argv) {
 		printf("bind() ERROR %d: %s\n", err, strerror(err));
 		exit(EXIT_FAILURE);
 	}
+
+	pthread_mutex_lock(&histmux);
+	histfd = open("history", O_CREAT | O_RDWR, S_IRWXU);
+	if(histfd < 0) {
+		printf("open() ERROR %d: %s\n", errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+	pthread_mutex_unlock(&histmux);
 
 	ret = listen(sockfd, 10);
 
@@ -162,7 +174,9 @@ int main(int argc, char **argv) {
 void* client_handle(void *iter) {
 	size_t it = *(size_t*)iter;
 	struct tlv receives;
+	struct tlv msg;
 	memset(&receives, 0, sizeof(receives));
+	memset(&msg, 0, sizeof(msg));
 	int ret = 0;
 	ret = client_getpass(&clients[it]);
 	if(ret != 0) {
@@ -171,6 +185,26 @@ void* client_handle(void *iter) {
 		client_free(&clients[it]);
 		pthread_exit(NULL);
 	}
+	pthread_mutex_lock(&histmux);
+	{
+		char buff[1024] = {0};
+		size_t size = 0;
+		lseek(histfd, 0, SEEK_SET);
+		while((size = read(histfd, buff, 1024))) {
+			msg.type = MESSAGE;
+			msg.length = size;
+			msg.data = (uint8_t*)buff;
+			ret = send_tlv(clients[it].clisock, &msg);
+			if(ret < 0) {
+				printf("send_tlv() ERROR %d : %s\n", errno, strerror(errno));
+				close(clients[it].clisock);
+				free(receives.data);
+				client_free(&clients[it]);
+				pthread_exit(NULL);
+			}
+		}
+	}
+	pthread_mutex_unlock(&histmux);
 	while(1) {
 		ret = recv_tlv(clients[it].clisock, &receives);
 		if(ret < 0) {
@@ -185,10 +219,18 @@ void* client_handle(void *iter) {
 				continue;
 				break;
 			case MESSAGE:
+				msg.data = malloc(strlen(receives.length + clients[it].name) + 5);
+				msg.length = sprintf((char*)msg.data, "<%s>: %s", clients[it].name, receives.data);
+				msg.type = MESSAGE;
+				pthread_mutex_lock(&histmux);
+				lseek(histfd, 0, SEEK_END);
+				write(histfd, msg.data, strlen((char*)msg.data));
+				pthread_mutex_unlock(&histmux);
 				for(size_t i = 0; i < MAX_CLIENTS; i++) {
 					if(clients[i].clisock == 0) continue;
 					if(clients[i].clisock == clients[it].clisock) continue;
-					ret = send_tlv(clients[i].clisock, &receives);
+					ret = send_tlv(clients[i].clisock, &msg);
+					//ret = send_tlv(clients[i].clisock, &receives);
 					if(ret < 0) {
 						int err = errno;
 						printf("send_tlv() ERROR %d : %s\n", err, strerror(err));
@@ -198,18 +240,19 @@ void* client_handle(void *iter) {
 						pthread_exit(NULL);
 					}
 				}
+				free(msg.data);
 				break;
 			case CONTROL:
 				if(strcmp((char*)receives.data, "TERM\n") == 0) {
 					printf("Client disconnected :(\n");
-					close(clients[it].clisock);
+					//close(clients[it].clisock);
 					free(receives.data);
 					client_free(&clients[it]);
 					pthread_exit(NULL);
 				}
 				break;
 			default:
-				printf("WRONG MESSEGE TYPE: %d", receives.type);
+				printf("WRONG MESSAGE TYPE: %d", receives.type);
 				close(clients[it].clisock);
 				free(receives.data);
 				client_free(&clients[it]);
@@ -263,8 +306,10 @@ void client_free(struct client_list* client) {
 	if(client->clisock) close(client->clisock);
 	client->clisock = 0;
 	client->clithread = 0;
-	free(client->name);
-	free(client->pass);
+	if(client->name) free(client->name);
+	if(client->pass) free(client->pass);
+	client->name = NULL;
+	client->pass = NULL;
 }
 
 void sig_sigchild(int signo) {
@@ -272,6 +317,6 @@ void sig_sigchild(int signo) {
 }
 
 void sig_sigpipe(int signo) {
-	printf("Received SIGPIPE - exit\n");
-	exit(EXIT_FAILURE);
+	printf("Received SIGPIPE\n");
+	//exit(EXIT_FAILURE);
 }

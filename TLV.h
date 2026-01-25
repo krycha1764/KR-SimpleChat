@@ -22,7 +22,9 @@ enum types {
 	NAME,
 	PASS,
 	MESSAGE,
-	CONTROL
+	CONTROL,
+	NEW_REQ,
+	NEW
 };
 
 struct tlv {

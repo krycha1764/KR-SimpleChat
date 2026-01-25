@@ -50,15 +50,13 @@ int main(int argc, char **argv) {
 		printf("WRONG PORT NUMBER\n");
 		exit(EXIT_FAILURE);
 	}
+	memset(clients, 0, sizeof(struct client_list) * MAX_CLIENTS);
 
 	ret = setupSignalsHandlers(SH_SERVER);
 	if(ret < 0) {
 		printf("Error setting signal handlers %d : %s", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-
-	//clients = malloc(MAX_CLIENTS * sizeof(struct client_list));
-	memset(clients, 0, sizeof(struct client_list) * MAX_CLIENTS);
 
 	int sockfd = 0;
 	struct sockaddr_in6 servaddr;
@@ -69,7 +67,6 @@ int main(int argc, char **argv) {
 	//servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	sockfd = socket(AF_INET6, SOCK_STREAM, 0);
-
 	if(sockfd <= 0) {
 		int err = errno;
 		printf("socket() ERROR: %s\n", strerror(err));
@@ -77,7 +74,6 @@ int main(int argc, char **argv) {
 	}
 
 	ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
-
 	if(ret < 0) {
 		int err = errno;
 		printf("setsockopt() ERROR %d: %s\n", err, strerror(err));
@@ -88,7 +84,6 @@ int main(int argc, char **argv) {
 	sl.l_onoff = 1;
 	sl.l_linger = 1;
 	ret = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &sl, sizeof(sl));
-
 	if(ret < 0) {
 		int err = errno;
 		printf("setsockopt() ERROR %d: %s\n", err, strerror(err));
@@ -96,7 +91,6 @@ int main(int argc, char **argv) {
 	}
 
 	ret = bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
-
 	if(ret) {
 		int err = errno;
 		printf("bind() ERROR %d: %s\n", err, strerror(err));
@@ -110,6 +104,7 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 	pthread_mutex_unlock(&histmux);
+
 /*
 	pthread_mutex_lock(&listmux);
 	listfd = open("userlist", O_CREAT | O_RDWR, S_IRWXU);
@@ -126,7 +121,6 @@ int main(int argc, char **argv) {
 */
 
 	ret = listen(sockfd, 10);
-
 	if(ret) {
 		int err = errno;
 		printf("listen() ERROR %d: %s\n", err, strerror(err));
@@ -241,7 +235,7 @@ void* client_handle(void *iter) {
 				msg.type = MESSAGE;
 				pthread_mutex_lock(&histmux);
 				lseek(histfd, 0, SEEK_END);
-				write(histfd, msg.data, strlen((char*)msg.data));
+				ret = write(histfd, msg.data, strlen((char*)msg.data));
 				pthread_mutex_unlock(&histmux);
 				for(size_t i = 0; i < MAX_CLIENTS; i++) {
 					if(clients[i].clisock == 0) continue;

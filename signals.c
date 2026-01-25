@@ -48,7 +48,7 @@ void sig_sighup(int signo) {
 }
 
 void sig_sigpipeSERVER(int signo) {
-	printf("Received SIGPIPE\n");
+	syslog(LOG_ERR, "Received SIGPIPE");
 }
 
 void sig_sigpipeCLIENT(int signo) {

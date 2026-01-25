@@ -19,7 +19,7 @@ server.o: server.c
 client.o: client.c
 	$(CC) $(CFLAGS) client.c -o client.o
 
-signals.o: signals.c
+signals.o: signals.c signals.h
 	$(CC) $(CFLAGS) signals.c -o signals.o
 
 TLV.o: TLV.c TLV.h

@@ -7,8 +7,8 @@ LFLAGS=-I. -Wall -O3 -lpthread
 
 all: server client
 
-server: server.o TLV.o signals.o
-	$(CC) $(LFLAGS) server.o TLV.o signals.o -o server
+server: server.o TLV.o signals.o users.o
+	$(CC) $(LFLAGS) server.o TLV.o signals.o users.o -o server
 
 client: client.o TLV.o signals.o
 	$(CC) $(LFLAGS) client.o TLV.o signals.o -o client
@@ -24,6 +24,9 @@ signals.o: signals.c signals.h
 
 TLV.o: TLV.c TLV.h
 	$(CC) $(CFLAGS) TLV.c -o TLV.o
+
+users.o: users.c users.h
+	$(CC) $(CFLAGS) users.c -o users.o
 
 clean:
 	rm -rf server

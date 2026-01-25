@@ -7,8 +7,8 @@ LFLAGS=-I. -Wall -O3 -lpthread
 
 all: server client
 
-server: server.o TLV.o signals.o users.o
-	$(CC) $(LFLAGS) server.o TLV.o signals.o users.o -o server
+server: server.o TLV.o signals.o users.o daemon_init.o
+	$(CC) $(LFLAGS) server.o TLV.o signals.o users.o daemon_init.o -o server
 
 client: client.o TLV.o signals.o
 	$(CC) $(LFLAGS) client.o TLV.o signals.o -o client
@@ -27,6 +27,9 @@ TLV.o: TLV.c TLV.h
 
 users.o: users.c users.h
 	$(CC) $(CFLAGS) users.c -o users.o
+
+daemon_init.o: daemon_init.c daemon_init.h
+	$(CC) $(CFLAGS) daemon_init.c -o daemon_init.o
 
 clean:
 	rm -rf server

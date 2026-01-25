@@ -23,6 +23,7 @@ size_t user_s = 0;
 size_t pass_s = 0;
 char* username = NULL;
 char* password = NULL;
+uint8_t newuser = 0;
 
 void* send_thread(void* arg);
 void* recv_thread(void* arg);
@@ -85,6 +86,19 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
+	{
+		char *tmptext = NULL;
+		size_t tmptext_s = 0;
+		printf("create account? (Y/N):");
+		ret = getline(&tmptext, &tmptext_s, stdin);
+		if(ret < 0) {
+			printf("getline() ERROR %d : %s\n", errno, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+		if(tmptext[0] == 'Y') newuser = 1;
+		free(tmptext);
+	}
+
 	printf("username:\n");
 	ret = getline(&username, &user_s, stdin);
 	if(ret < 0) {
@@ -97,10 +111,10 @@ int main(int argc, char **argv) {
 		printf("username too long\n");
 		exit(EXIT_FAILURE);
 	}
-	//printf("password:\n");
-	//ret = getline(&password, &pass_s, stdin);
-	password = "password";
-	ret = strlen(password);
+	printf("password:\n");
+	ret = getline(&password, &pass_s, stdin);
+	//password = "password";
+	//ret = strlen(password);
 	if(ret < 0) {
 		printf("getline() ERROR %d : %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);
@@ -225,6 +239,10 @@ void* recv_thread(void* arg) {
 				break;
 			case PASS_REQ:
 				sendMessage(sockfd, PASS, password);
+				break;
+			case NEW_REQ:
+				if(newuser == 1) sendMessage(sockfd, NEW, "Y");
+				else sendMessage(sockfd, NEW, "N");
 				break;
 			default:
 			printf("WRONG DATA RECEIVED %X %X\n", MESSAGE, receives.type);

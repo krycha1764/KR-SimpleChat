@@ -13,6 +13,7 @@
 
 #include "TLV.h"
 #include "signals.h"
+#include "users.h"
 
 #define MAX_CLIENTS 128
 
@@ -21,10 +22,13 @@ struct client_list {
 	pthread_t clithread;
 	char* name;
 	char* pass;
+	uint8_t newuser;
 };
 
 int histfd = 0;
+int listfd = 0;
 pthread_mutex_t histmux = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t listmux = PTHREAD_MUTEX_INITIALIZER;
 //struct client_list *clients = NULL;
 struct client_list clients[MAX_CLIENTS];
 
@@ -106,6 +110,20 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 	pthread_mutex_unlock(&histmux);
+/*
+	pthread_mutex_lock(&listmux);
+	listfd = open("userlist", O_CREAT | O_RDWR, S_IRWXU);
+	if(listfd < 0) {
+		printf("open() ERROR %d: %s\n", errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+	ret = readListFile(listfd);
+	if(ret < 0) {
+		printf("readListFile() ERROR %d: %s\n", errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+	pthread_mutex_unlock(&listmux);
+*/
 
 	ret = listen(sockfd, 10);
 
@@ -170,6 +188,20 @@ void* client_handle(void *iter) {
 		client_free(&clients[it]);
 		pthread_exit(NULL);
 	}
+/*
+	if(clients[it].newuser) {
+		pthread_mutex_lock(&listmux);
+		addUser(listfd, clients[it].name, clients[it].pass);
+		pthread_mutex_unlock(&listmux);
+	}
+	ret = verfyUser(clients[it].name, clients[it].pass);
+	if(ret == 0) {
+		sendMessage(clients[it].clisock, CONTROL, "TERM\n");
+		close(clients[it].clisock);
+		client_free(&clients[it]);
+		pthread_exit(NULL);
+	}
+*/
 	pthread_mutex_lock(&histmux);
 	{
 		char buff[1024] = {0};
@@ -265,7 +297,8 @@ int client_getpass(struct client_list* client) {
 		return errno;
 	}
 	if(msg.type != NAME) return -1;
-	client->name = realloc(client->name, strlen((char*)msg.data));
+	//client->name = realloc(client->name, strlen((char*)msg.data) + 1);
+	client->name = malloc(strlen((char*)msg.data) + 1);
 	strcpy(client->name, (char*)msg.data);
 	free(msg.data);
 
@@ -281,8 +314,24 @@ int client_getpass(struct client_list* client) {
 		return errno;
 	}
 	if(msg.type != PASS) return -1;
-	client->pass = realloc(client->pass, strlen((char*)msg.data));
+	//client->pass = realloc(client->pass, strlen((char*)msg.data) + 1);
+	client->pass = malloc(strlen((char*)msg.data) + 1);
 	strcpy(client->pass, (char*)msg.data);
+	free(msg.data);
+
+	msg.type = NEW_REQ;
+	msg.length = 0;
+	msg.data = NULL;
+	ret = send_tlv(client->clisock, &msg);
+	if(ret < 0) {
+		return errno;
+	}
+	ret = recv_tlv(client->clisock, &msg);
+	if(ret < 0) {
+		return errno;
+	}
+	if(msg.type != NEW) return -1;
+	if((msg.data)[0] == 'Y') client->newuser = 1;
 	free(msg.data);
 	return 0;
 }

@@ -16,6 +16,7 @@ enum sigHandlers {
 int setupSignalsHandlers(int app);
 
 void sig_sigchild(int signo);
+void sig_sighup(int signo);
 void sig_sigpipeSERVER(int signo);
 void sig_sigpipeCLIENT(int signo);
 

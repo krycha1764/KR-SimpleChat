@@ -13,12 +13,24 @@ int setupSignalsHandlers(int app) {
 
 	if(app == SH_SERVER) {
 		action.sa_handler = sig_sigpipeSERVER;
-	} else if(app == SH_SERVER) {
+	} else if(app == SH_CLIENT) {
 		action.sa_handler = sig_sigpipeCLIENT;
 	}
 	sigemptyset(&action.sa_mask);
 	action.sa_flags = SA_RESTART;
 	ret = sigaction(SIGPIPE, &action, NULL);
+	if(ret < 0) {
+		return ret;
+	}
+
+	if(app == SH_SERVER) {
+		action.sa_handler = SIG_IGN;
+	} else if(app == SH_SERVER) {
+		action.sa_handler = sig_sighup;
+	}
+	sigemptyset(&action.sa_mask);
+	action.sa_flags = SA_RESTART;
+	ret = sigaction(SIGHUP, &action, NULL);
 	if(ret < 0) {
 		return ret;
 	}
@@ -29,6 +41,10 @@ int setupSignalsHandlers(int app) {
 void sig_sigchild(int signo) {
 	int status;
 	while(waitpid(-1, &status, WNOHANG) > 0);
+}
+
+void sig_sighup(int signo) {
+	exit(EXIT_FAILURE);
 }
 
 void sig_sigpipeSERVER(int signo) {

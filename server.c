@@ -10,10 +10,12 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include <syslog.h>
 
 #include "TLV.h"
 #include "signals.h"
 #include "users.h"
+#include "daemon_init.h"
 
 #define MAX_CLIENTS 128
 
@@ -68,15 +70,13 @@ int main(int argc, char **argv) {
 
 	sockfd = socket(AF_INET6, SOCK_STREAM, 0);
 	if(sockfd <= 0) {
-		int err = errno;
-		printf("socket() ERROR: %s\n", strerror(err));
+		printf("socket() ERROR %d : %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
 	ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
 	if(ret < 0) {
-		int err = errno;
-		printf("setsockopt() ERROR %d: %s\n", err, strerror(err));
+		printf("setsockopt() ERROR %d: %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
@@ -85,25 +85,15 @@ int main(int argc, char **argv) {
 	sl.l_linger = 1;
 	ret = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &sl, sizeof(sl));
 	if(ret < 0) {
-		int err = errno;
-		printf("setsockopt() ERROR %d: %s\n", err, strerror(err));
+		printf("setsockopt() ERROR %d: %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
 	ret = bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
 	if(ret) {
-		int err = errno;
-		printf("bind() ERROR %d: %s\n", err, strerror(err));
+		printf("bind() ERROR %d: %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-
-	pthread_mutex_lock(&histmux);
-	histfd = open("history", O_CREAT | O_RDWR, S_IRWXU);
-	if(histfd < 0) {
-		printf("open() ERROR %d: %s\n", errno, strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-	pthread_mutex_unlock(&histmux);
 
 /*
 	pthread_mutex_lock(&listmux);
@@ -122,10 +112,23 @@ int main(int argc, char **argv) {
 
 	ret = listen(sockfd, 10);
 	if(ret) {
-		int err = errno;
-		printf("listen() ERROR %d: %s\n", err, strerror(err));
+		printf("listen() ERROR %d: %s\n", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
+
+	ret = makeDaemon(argv[0], sockfd);
+	if(ret < 0) {
+		printf("can't make a daemon %d : %s", errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	pthread_mutex_lock(&histmux);
+	histfd = open("history", O_CREAT | O_RDWR, S_IRWXU);
+	if(histfd < 0) {
+		printf("open() ERROR %d: %s\n", errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+	pthread_mutex_unlock(&histmux);
 
 	while(1) {
 		struct sockaddr_in cliaddr;
@@ -133,8 +136,7 @@ int main(int argc, char **argv) {
 
 		int connfd = accept(sockfd, (struct sockaddr*)&cliaddr, &clilen);
 		if(connfd < 0) {
-			int err = errno;
-			printf("accept() ERROR %d : %s\n", err, strerror(err));
+			syslog(LOG_ERR, "accept() ERROR %d : %s", errno, strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 
@@ -153,10 +155,10 @@ int main(int argc, char **argv) {
 		if(tooManyClients) {
 			sendMessage(sockfd, CONTROL, "REJECT\n");
 			close(connfd);
-			printf("Rejected client\n");
+			syslog(LOG_INFO, "Rejected client");
 			continue;
 		}
-		printf("Client connected :)\n");
+		syslog(LOG_INFO, "Client connected :)");
 
 		ret = pthread_create(&clients[iterator].clithread, NULL, &client_handle, &iterator);
 		if(ret != 0) {
@@ -177,7 +179,7 @@ void* client_handle(void *iter) {
 	int ret = 0;
 	ret = client_getpass(&clients[it]);
 	if(ret != 0) {
-		printf("client_getpass ERROR %d : %s", ret, strerror(ret));
+		syslog(LOG_ERR, "client_getpass ERROR %d : %s", ret, strerror(ret));
 		free(receives.data);
 		client_free(&clients[it]);
 		pthread_exit(NULL);
@@ -207,7 +209,7 @@ void* client_handle(void *iter) {
 			msg.data = (uint8_t*)buff;
 			ret = send_tlv(clients[it].clisock, &msg);
 			if(ret < 0) {
-				printf("send_tlv() ERROR %d : %s\n", errno, strerror(errno));
+				syslog(LOG_ERR, "send_tlv() ERROR %d : %s", errno, strerror(errno));
 				close(clients[it].clisock);
 				free(receives.data);
 				client_free(&clients[it]);
@@ -219,8 +221,7 @@ void* client_handle(void *iter) {
 	while(1) {
 		ret = recv_tlv(clients[it].clisock, &receives);
 		if(ret < 0) {
-			int err = errno;
-			printf("recv_tlv() ERROR %d : %s\n", err, strerror(err));
+			syslog(LOG_ERR, "recv_tlv() ERROR %d : %s", errno, strerror(errno));
 			free(receives.data);
 			client_free(&clients[it]);
 			pthread_exit(NULL);
@@ -243,8 +244,7 @@ void* client_handle(void *iter) {
 					ret = send_tlv(clients[i].clisock, &msg);
 					//ret = send_tlv(clients[i].clisock, &receives);
 					if(ret < 0) {
-						int err = errno;
-						printf("send_tlv() ERROR %d : %s\n", err, strerror(err));
+						syslog(LOG_INFO, "send_tlv() ERROR %d : %s", errno, strerror(errno));
 						close(clients[it].clisock);
 						free(receives.data);
 						client_free(&clients[it]);
@@ -255,7 +255,7 @@ void* client_handle(void *iter) {
 				break;
 			case CONTROL:
 				if(strcmp((char*)receives.data, "TERM\n") == 0) {
-					printf("Client disconnected :(\n");
+					syslog(LOG_INFO, "Client disconnected :(");
 					//close(clients[it].clisock);
 					free(receives.data);
 					client_free(&clients[it]);
@@ -263,7 +263,7 @@ void* client_handle(void *iter) {
 				}
 				break;
 			default:
-				printf("WRONG MESSAGE TYPE: %d", receives.type);
+				syslog(LOG_ERR, "WRONG MESSAGE TYPE: %d", receives.type);
 				close(clients[it].clisock);
 				free(receives.data);
 				client_free(&clients[it]);

@@ -87,7 +87,7 @@ int sendMessage(int sockfd, int type, char* message) {
 	struct tlv msg;
 
 	msg.type = type;
-	msg.length = strlen(message);
+	msg.length = strlen(message) + 1;
 	msg.data = (uint8_t*)message;
 	return send_tlv(sockfd, &msg);
 }

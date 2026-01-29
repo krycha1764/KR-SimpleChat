@@ -125,10 +125,12 @@ int main(int argc, char **argv) {
 	pthread_mutex_lock(&histmux);
 	histfd = open("history", O_CREAT | O_RDWR, S_IRWXU);
 	if(histfd < 0) {
-		printf("open() ERROR %d: %s\n", errno, strerror(errno));
+		syslog(LOG_ERR, "open() ERROR %d: %s", errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 	pthread_mutex_unlock(&histmux);
+
+	syslog(LOG_INFO, "Server started");
 
 	while(1) {
 		struct sockaddr_in cliaddr;
